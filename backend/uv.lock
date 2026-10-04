@@ -680,6 +680,28 @@ wheels = [
 ]
 
 [[package]]
+name = "harness-model-router"
+version = "0.1.0"
+source = { directory = "../packages/model-router" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.optional-dependencies]
+langchain = [
+    { name = "langchain" },
+    { name = "langgraph" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=1.4,<2" },
+    { name = "langgraph", marker = "extra == 'langchain'", specifier = ">=1.2,<2" },
+    { name = "pydantic", specifier = ">=2.11" },
+]
+provides-extras = ["langchain"]
+
+[[package]]
 name = "httpcore"
 version = "1.0.9"
 source = { registry = "https://pypi.org/simple" }
@@ -846,6 +868,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "fpdf2" },
     { name = "google-auth", extra = ["requests"] },
+    { name = "harness-model-router", extra = ["langchain"] },
     { name = "httpx" },
     { name = "langchain" },
     { name = "langchain-fireworks" },
@@ -859,6 +882,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pypdfium2" },
     { name = "python-multipart" },
+    { name = "pyyaml" },
     { name = "rapidfuzz" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "structlog" },
@@ -881,6 +905,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
+    { name = "types-pyyaml" },
 ]
 
 [package.metadata]
@@ -892,6 +917,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.120" },
     { name = "fpdf2", specifier = ">=2.8" },
     { name = "google-auth", extras = ["requests"], specifier = ">=2.40" },
+    { name = "harness-model-router", extras = ["langchain"], directory = "../packages/model-router" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "langchain", specifier = ">=1.4" },
     { name = "langchain-fireworks", specifier = ">=1.7" },
@@ -907,6 +933,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "pypdfium2", specifier = ">=4.30" },
     { name = "python-multipart", specifier = ">=0.0.20" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "rapidfuzz", specifier = ">=3.10" },
     { name = "rapidocr", marker = "extra == 'ocr'", specifier = ">=3.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.40" },
@@ -922,6 +949,7 @@ dev = [
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-asyncio", specifier = ">=0.25" },
     { name = "ruff", specifier = ">=0.9" },
+    { name = "types-pyyaml", specifier = ">=6" },
 ]
 
 [[package]]
@@ -2110,6 +2138,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/53/a3/1585216310e344e8102c22482f6060c7a6ea0322b63e026372e6dcefcfd6/truststore-0.10.4.tar.gz", hash = "sha256:9d91bd436463ad5e4ee4aba766628dd6cd7010cf3e2461756b3303710eebc301", size = 26169, upload-time = "2025-08-12T18:49:02.73Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/19/97/56608b2249fe206a67cd573bc93cd9896e1efb9e98bce9c163bcdc704b88/truststore-0.10.4-py3-none-any.whl", hash = "sha256:adaeaecf1cbb5f4de3b1959b42d41f6fab57b2b1666adb59e89cb0b53361d981", size = 18660, upload-time = "2025-08-12T18:49:01.46Z" },
+]
+
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20260906"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/6e/abec85b9013db5b934b0280a6dd104904d84f7bcbaab2e2f3def87ac7463/types_pyyaml-6.0.12.20260906.tar.gz", hash = "sha256:f59c1cc05010b833d2d72287bbaa72610106b28d42d89a907313117faba85212", size = 18649, upload-time = "2026-09-06T06:35:35.362Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/c0/fc0644b7ddcfb969e95845837143cb5173ddd6e06ee4ba5fc493cd9329b7/types_pyyaml-6.0.12.20260906-py3-none-any.whl", hash = "sha256:bca893ff0d51df5c9053137d5d0e6ccd36e939a196356f1d5c16372422f5137b", size = 21282, upload-time = "2026-09-06T06:35:34.372Z" },
 ]
 
 [[package]]

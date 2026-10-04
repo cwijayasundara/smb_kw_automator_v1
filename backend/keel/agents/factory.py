@@ -7,6 +7,7 @@
 """
 
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -14,8 +15,9 @@ from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, FilesystemBackend, StateBackend
 from deepagents.backends.utils import create_file_data
 from deepagents.middleware.filesystem import FilesystemPermission
+from harness_model_router import ModelProfile
 from langchain.agents.middleware import ModelCallLimitMiddleware, ToolCallLimitMiddleware
-from langchain.chat_models import init_chat_model
+from langchain_core.language_models import BaseChatModel
 from sqlalchemy import select
 
 from keel.agents.offline import OfflineModel
@@ -24,6 +26,8 @@ from keel.domain.models import Customer, Product
 from keel.identity.models import Org, TenantProfile
 from keel.platform.config import get_settings
 from keel.platform.db import tenant_session
+from keel.routing.profiles import initial_profile, profiles, route_request
+from keel.routing.profiles import model_factory as model_factory
 from keel.workflows.runtime import checkpointer
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,13 +41,57 @@ SYSTEM = (
 )
 
 
-def chat_model() -> Any:
+class ModelPool:
+    """Per-request clients: reused across calls and closed when the stream finishes."""
+
+    def __init__(self, factory: Callable[[ModelProfile], BaseChatModel]) -> None:
+        self.factory = factory
+        self.models: dict[str, BaseChatModel] = {}
+
+    def get(self, profile: ModelProfile) -> BaseChatModel:
+        if profile.id not in self.models:
+            self.models[profile.id] = self.factory(profile)
+        return self.models[profile.id]
+
+    async def close(self) -> None:
+        for model in self.models.values():
+            closer = getattr(model, "aclose", None)
+            if closer is not None:
+                await closer()
+            elif (client := getattr(model, "root_async_client", None)) is not None:
+                await client.close()
+            sync_closer = getattr(model, "close", None)
+            if sync_closer is not None:
+                sync_closer()
+            elif (client := getattr(model, "root_client", None)) is not None:
+                client.close()
+
+
+def chat_model(pool: ModelPool | None = None) -> Any:
     s = get_settings()
     if not s.live_llm:
         return OfflineModel()
-    provider, _, name = s.model_default.partition(":")
-    kwargs: dict[str, Any] = {"use_responses_api": True, "reasoning": {"effort": "low"}} if provider == "openai" else {}
-    return init_chat_model(name, model_provider=provider, api_key=s.api_key(provider), **kwargs)
+    return pool.get(initial_profile()) if pool else model_factory(initial_profile())
+
+
+def agent_middleware(pool: ModelPool | None = None) -> list[Any]:
+    from harness_model_router import Router
+    from harness_model_router.adapters.langchain import ModelRouterMiddleware
+
+    s = get_settings()
+    middleware: list[Any] = [ModelCallLimitMiddleware(run_limit=8), ToolCallLimitMiddleware(run_limit=10)]
+    if s.live_llm and s.router_mode in {"enabled", "shadow"}:
+        middleware.append(
+            ModelRouterMiddleware(
+                Router(profiles(s)),
+                pool.get if pool else model_factory,
+                route_request,
+                max_fallbacks=s.router_max_fallbacks,
+                max_upgrades=s.router_max_upgrades,
+                shadow=s.router_mode == "shadow",
+            )
+        )
+    return middleware
 
 
 async def tenant_memory(org_id: uuid.UUID, user_id: uuid.UUID) -> str:
@@ -67,7 +115,9 @@ async def tenant_memory(org_id: uuid.UUID, user_id: uuid.UUID) -> str:
     return "\n".join(lines) + "\n"
 
 
-async def build_agent(org_id: uuid.UUID, user_id: uuid.UUID) -> Any:
+async def build_agent(org_id: uuid.UUID, user_id: uuid.UUID, pool: ModelPool | None = None) -> Any:
+    tools = build_tools(org_id, user_id)
+    model = chat_model(pool)
     backend = CompositeBackend(
         default=StateBackend(),
         routes={
@@ -76,14 +126,29 @@ async def build_agent(org_id: uuid.UUID, user_id: uuid.UUID) -> Any:
         },
     )
     return create_deep_agent(
-        model=chat_model(),
-        tools=build_tools(org_id, user_id),
+        model=model,
+        tools=tools,
         system_prompt=SYSTEM,
         skills=["/skills/"],
         memory=["/tenant/AGENTS.md"],
         permissions=[FilesystemPermission(operations=["write"], paths=["/**"], mode="deny")],
         backend=backend,
-        middleware=cast(Any, [ModelCallLimitMiddleware(run_limit=8), ToolCallLimitMiddleware(run_limit=10)]),
+        middleware=cast(Any, agent_middleware(pool)),
+        subagents=cast(
+            Any,
+            [
+                {
+                    "name": "general-purpose",
+                    "description": "Read-only analysis of Keel records",
+                    "model": model,
+                    "tools": tools,
+                    "system_prompt": SYSTEM,
+                    "skills": ["/skills/"],
+                    "memory": ["/tenant/AGENTS.md"],
+                    "middleware": agent_middleware(pool),
+                }
+            ],
+        ),
         checkpointer=await checkpointer(),
         name="ask-keel",
     )

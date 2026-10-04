@@ -1,3 +1,7 @@
 
 # parser bake-off output
 backend/evals/reports/
+
+# Python generated files
+__pycache__/
+*.py[cod]

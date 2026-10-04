@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Keel backend: tenant management, document intelligence and agents for small food producers"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+  "harness-model-router[langchain]",
+  "pyyaml>=6.0.2",
   "fastapi>=0.120",
   "uvicorn[standard]>=0.30",
   "pydantic>=2.11",
@@ -37,7 +39,7 @@ observability = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "ruff>=0.9", "mypy>=1.15", "asgi-lifespan>=2.1"]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "ruff>=0.9", "mypy>=1.15", "asgi-lifespan>=2.1", "types-pyyaml>=6"]
 
 [project.scripts]
 keel = "keel.__main__:main"
@@ -45,6 +47,9 @@ keel = "keel.__main__:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv.sources]
+harness-model-router = { path = "../packages/model-router" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["keel"]

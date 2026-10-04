@@ -27,13 +27,11 @@ Rules you must follow:
 
 def _model(model_id: str) -> Any:
     provider, _, name = model_id.partition(":")
-    kwargs: dict[str, Any] = {}
-    if provider == "openai":
-        # GPT-6 tool/structured calls go through the Responses API; no temperature for GPT-6.
-        kwargs = {"use_responses_api": True, "reasoning": {"effort": "none"}}
-    elif provider == "google_genai":
-        kwargs = {"thinking_level": "low"}
-    return init_chat_model(name, model_provider=provider, api_key=get_settings().api_key(provider), **kwargs)
+    s = get_settings()
+    if not s.api_key(provider):
+        raise ValueError("Document parsing needs credentials for the configured parser provider")
+    kwargs: dict[str, Any] = dict(s.model_registry.parser_kwargs.get(provider, {}))
+    return init_chat_model(name, model_provider=provider, api_key=s.api_key(provider), **kwargs)
 
 
 class LlmExtractor:

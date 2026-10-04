@@ -1,0 +1,105 @@
+# All model identifiers and model-specific settings live here. Secrets belong in .env.
+# Prices: USD / million tokens; Fireworks Standard rates checked 2026-10-04.
+# Tiers express configured task suitability, not measured quality guarantees.
+version: "2026-10-04"
+defaults:
+  model_default: openai:gpt-6-luna
+  model_parser: google_genai:gemini-3.8-flash
+  model_vision_handwriting: google_genai:gemini-3.8-flash
+  model_luna: openai:gpt-6-luna
+  model_glm_flash: fireworks:accounts/fireworks/models/glm-5p3-flash
+  model_deepseek_flash: fireworks:accounts/fireworks/models/deepseek-v4p1-flash
+  model_balanced: openai:gpt-6-sol
+  model_reasoning: fireworks:accounts/fireworks/models/glm-5p3-flash
+  model_fallback: openai:gpt-6-luna
+  model_tier4_sol: openai:gpt-6-sol
+  embedding_model: text-embedding-3-small
+prices:
+  gpt-6-luna:
+    input: "0.10"
+    cached_input: "0.01"
+    output: "0.50"
+    long_context_threshold: 272000
+    long_input_multiplier: "2"
+    long_output_multiplier: "1.5"
+  gpt-6-sol:
+    input: "2.00"
+    cached_input: "0.20"
+    output: "10.00"
+    long_context_threshold: 272000
+    long_input_multiplier: "2"
+    long_output_multiplier: "1.5"
+  gemini-3.8-flash:
+    input: "0.75"
+    cached_input: "0.075"
+    output: "3.75"
+  accounts/fireworks/models/glm-5p3-flash:
+    input: "0.15"
+    cached_input: "0.03"
+    output: "0.50"
+  accounts/fireworks/models/deepseek-v4p1-flash:
+    input: "0.30"
+    cached_input: "0.006"
+    output: "1.20"
+  accounts/fireworks/models/glm-5p3:
+    input: "1.40"
+    cached_input: "0.26"
+    output: "4.40"
+bindings:
+  fast-openai: model_luna
+  fast-glm: model_glm_flash
+  fast-deepseek: model_deepseek_flash
+  strong-openai: model_balanced
+  google: model_vision_handwriting
+profiles:
+  - id: fast-openai
+    provider: openai
+    model: gpt-6-luna
+    tier: 1
+    tasks: [routine]
+    capabilities: [text, tools, image, structured]
+    context_window: 1050000
+    max_output: 16384
+    kwargs: {use_responses_api: true, reasoning: {effort: low}}
+  - id: fast-glm
+    provider: fireworks
+    model: accounts/fireworks/models/glm-5p3-flash
+    tier: 2
+    tasks: [routine, reasoning]
+    capabilities: [text, tools, image, structured]
+    context_window: 1040000
+    max_output: 16384
+    kwargs: {reasoning_effort: medium, stream_usage: true}
+  - id: fast-deepseek
+    provider: fireworks
+    model: accounts/fireworks/models/deepseek-v4p1-flash
+    tier: 2
+    tasks: [routine, reasoning]
+    capabilities: [text, tools, image, structured]
+    context_window: 1040000
+    max_output: 16384
+    kwargs: {reasoning_effort: medium, stream_usage: true}
+  - id: strong-openai
+    provider: openai
+    model: gpt-6-sol
+    tier: 3
+    tasks: [routine, reasoning]
+    capabilities: [text, tools, image, structured]
+    context_window: 1050000
+    max_output: 16384
+    kwargs: {use_responses_api: true, reasoning: {effort: medium}}
+  - id: google
+    provider: google_genai
+    model: gemini-3.8-flash
+    tier: 2
+    tasks: [routine, reasoning]
+    capabilities: [text, tools, image, structured]
+    context_window: 1000000
+    max_output: 16384
+    kwargs: {thinking_level: low}
+parser_kwargs:
+  google_genai: {thinking_level: low}
+  openai: {use_responses_api: true, reasoning: {effort: none}}
+# To add Qwen, add a profile with provider: qwen and its exact deployment ID,
+# capabilities, context/output limits, kwargs and price; set QWEN_API_KEY and
+# KEEL_QWEN_BASE_URL in .env. An unpriced profile is never auto-selected.

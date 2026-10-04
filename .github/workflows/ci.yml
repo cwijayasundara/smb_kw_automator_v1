@@ -31,13 +31,15 @@ jobs:
         working-directory: backend
       - name: Lint
         working-directory: backend
-        run: uv run ruff check keel tests migrations && uv run ruff format --check keel tests migrations
+        run: uv run ruff check keel tests migrations ../packages/model-router && uv run ruff format --check keel tests migrations ../packages/model-router
       - name: Typecheck
         working-directory: backend
-        run: uv run mypy keel
+        run: uv run mypy keel ../packages/model-router/src
       - name: Tests (real Postgres, RLS-bound app role)
         working-directory: backend
-        run: uv run pytest -q
+        run: uv run pytest -q tests ../packages/model-router/tests
+      - name: Build independent model router wheel
+        run: uv build --directory packages/model-router --out-dir /tmp/router-dist
       - name: Parser bake-off on the synthetic gold set (no value may be invented)
         working-directory: backend
         run: |

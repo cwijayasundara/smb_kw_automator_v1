@@ -10,15 +10,16 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
 from pydantic import BaseModel, Field
 
-from keel.agents.factory import agent_input, build_agent, thread
+from keel.agents import factory
+from keel.agents.factory import ModelPool, agent_input, build_agent, thread
 from keel.api.deps import Viewer
 from keel.audit.service import record_usage
-from keel.documents.engines.base import cost
 from keel.identity.service import Ctx
 from keel.platform.config import get_settings
 from keel.platform.db import tenant_session
 from keel.platform.logging import log
 from keel.platform.tracing import trace_config
+from keel.routing.usage import UsageRecorder
 
 router = APIRouter(tags=["agent"])
 
@@ -41,13 +42,15 @@ def _sse(event: dict[str, Any]) -> str:
 
 
 async def _stream(ctx: Ctx, body: AskIn) -> AsyncIterator[str]:
-    agent = await build_agent(ctx.org_id, ctx.user_id)
+    pool = ModelPool(lambda profile: factory.model_factory(profile))
     config = thread(ctx.org_id, ctx.user_id, body.conversation_id) | trace_config(
         "ask-keel", ctx.org_id, ctx.user_id, str(body.conversation_id)
     )
-    tin = tout = 0
+    recorder = UsageRecorder(ctx.org_id, ctx.user_id, body.conversation_id)
+    config["callbacks"] = [*config.get("callbacks", []), recorder]
     streamed_text = False
     try:
+        agent = await build_agent(ctx.org_id, ctx.user_id, pool)
         async for mode, chunk in agent.astream(
             await agent_input(ctx.org_id, ctx.user_id, body.message), config, stream_mode=["messages", "updates"]
         ):
@@ -62,9 +65,6 @@ async def _stream(ctx: Ctx, body: AskIn) -> AsyncIterator[str]:
             for update in (chunk or {}).values():
                 for m in (update or {}).get("messages", []) if isinstance(update, dict) else []:
                     if isinstance(m, AIMessage):
-                        usage: dict[str, Any] = dict(m.usage_metadata or {})
-                        tin += int(usage.get("input_tokens", 0))
-                        tout += int(usage.get("output_tokens", 0))
                         for tc in m.tool_calls:
                             yield _sse({"type": "tool", "name": tc["name"], "args": tc["args"]})
                         if not streamed_text and _text(m.content):
@@ -72,13 +72,16 @@ async def _stream(ctx: Ctx, body: AskIn) -> AsyncIterator[str]:
                     elif isinstance(m, ToolMessage):
                         yield _sse({"type": "tool_result", "name": m.name, "preview": str(m.content)[:400]})
     except Exception as exc:  # surface a readable error to the chat instead of a broken stream
-        log.error("agent.failed", error=str(exc))
+        log.error("agent.failed", error_type=type(exc).__name__, status_code=getattr(exc, "status_code", None))
         yield _sse({"type": "error", "message": "Keel could not answer that. Try rephrasing."})
-    model = get_settings().model_default.split(":", 1)[1] if get_settings().live_llm else "offline"
-    async with tenant_session(ctx.org_id, ctx.user_id) as db:
-        await record_usage(
-            db, ctx.org_id, "ask", model=model, input_tokens=tin, output_tokens=tout, cost_usd=cost(model, tin, tout)
-        )
+    finally:
+        try:
+            await recorder.close()
+        finally:
+            await pool.close()
+    if not get_settings().live_llm:
+        async with tenant_session(ctx.org_id, ctx.user_id) as db:
+            await record_usage(db, ctx.org_id, "ask", model="offline")
     yield _sse({"type": "done"})
 
 

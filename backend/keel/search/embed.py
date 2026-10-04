@@ -41,7 +41,7 @@ class OpenAIEmbedder:
 
 def embedder() -> Embedder | None:
     s = get_settings()
-    if s.live_llm:
+    if s.live_llm and s.openai_api_key:
         return OpenAIEmbedder(s.embedding_model, s.embedding_dims, s.embedding_usd_per_mtok)
     return None
 

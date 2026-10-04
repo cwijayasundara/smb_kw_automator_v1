@@ -15,7 +15,7 @@ Postgres holds everything. Row-level security isolates each business's data.
 |---|---|
 | Tenancy | Sign up a business, sign in with a password or magic link, invite teammates with roles (owner/admin/member/viewer), switch between businesses. Postgres RLS on every tenant table; the app's database role cannot bypass it. |
 | Paper in | Drag and drop, file picker, or a phone camera upload. The same photo uploaded twice is processed only once. |
-| Reading | PDF text layer → CPU OCR (PP-OCR via RapidOCR) → extraction (GPT-6 Luna with a key, or an offline rules engine) → Gemini 3.8 Flash re-read when checks fail. |
+| Reading | PDF text layer → CPU OCR (PP-OCR via RapidOCR) → Gemini 3.8 Flash extraction (or an offline rules engine) → validation-driven re-read when checks fail. |
 | Checks | Line and total maths, grouped pricing, crossed-out lines, unreadable fields (left empty, never guessed), dates, and instructions written on the paper (ignored). |
 | Evidence | Each value is boxed on the page image. Hover a field to see where it was read; click to correct it. |
 | Approvals | LangGraph workflow pauses at a gate. The approval is bound to a hash of exactly what will be written; edits made after approval need a new approval. |
@@ -29,6 +29,7 @@ Postgres holds everything. Row-level security isolates each business's data.
 | Ask Keel | A deepagents agent with skills (`backend/skills/`), shared rules, tenant memory, read-only tools and streamed answers. It works offline without API keys. |
 | Tracing | Optional self-hosted Langfuse for extraction and agent calls, tagged by org; off unless keys are set. `make langfuse` runs it locally, pre-wired. |
 | Metering | The Desk shows token and page cost for every model call, per tenant. |
+| Model routing | Separate `harness-model-router` package picks the cheapest available profile meeting task/capability requirements. Model IDs, prices and provider settings come from `backend/keel/models.yml`, with `.env` overrides. Agent calls reserve tenant budget and meter actual models, including child and summary calls. |
 
 ## Run it locally
 
@@ -57,7 +58,21 @@ Without API keys, Keel runs fully offline:
 - The local rules engine reads typed and OCR'd order sheets.
 - Ask Keel answers through an offline tool-calling model.
 
-Add `OPENAI_API_KEY` for GPT-6 Luna extraction and full agent answers, and `GOOGLE_API_KEY` for Gemini handwriting re-reads.
+Add `GOOGLE_API_KEY` for Gemini document parsing. Add `OPENAI_API_KEY` and/or `FIREWORKS_API_KEY`
+for routed agent answers; semantic search embeddings need the OpenAI key.
+
+Routine tasks start with the cheapest eligible profile; reasoning requests require a higher configured
+suitability tier. Current YAML candidates include Luna, both Fireworks Flash models, Sol and Gemini.
+Qwen can be added as a priced profile with an approved endpoint. No model identifier is hard-coded
+in the router. Unknown prices and unavailable providers are excluded.
+
+Set `KEEL_ROUTER_MODE=shadow` to record candidate routes while keeping `KEEL_MODEL_DEFAULT`,
+or `off` to use the configured default. Changing YAML/.env requires restarting the API and worker.
+Run `make migrate` for tenant budget reservations. The monthly budget gate applies to agent calls;
+document and embedding spend also contributes to the amount considered by that gate.
+Task tiers are configured rules, not measured quality guarantees; refine them using real task evals.
+See [the implementation report](docs/MODEL_ROUTER_IMPLEMENTATION.md) for configuration,
+validation and the scope of the first version.
 
 **Postgres without Docker:** create the roles and databases in `backend/scripts/init-db.sql` (for example `sudo -u postgres psql -f backend/scripts/init-db.sql`), then continue from `make migrate`.
 

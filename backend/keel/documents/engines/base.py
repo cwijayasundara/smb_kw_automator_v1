@@ -3,7 +3,10 @@
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from harness_model_router import Usage
 from pydantic import BaseModel
+
+from keel.platform.config import get_settings
 
 
 @dataclass
@@ -29,15 +32,10 @@ class Extractor(Protocol):
     async def extract(self, pages: list[PageInput], schema: type[BaseModel], hint: str = "") -> EngineResult: ...
 
 
-# USD per 1M tokens (input, output). Kept in one place; update when providers change prices.
-PRICES: dict[str, tuple[float, float]] = {
-    "gpt-6-luna": (0.10, 0.50),
-    "gemini-3.8-flash": (0.75, 3.75),
-    "gpt-6-sol": (2.00, 10.00),
-    "accounts/fireworks/models/glm-5p3": (1.40, 4.40),
-}
-
-
 def cost(model: str, input_tokens: int, output_tokens: int) -> float:
-    pin, pout = PRICES.get(model, (0.0, 0.0))
-    return (input_tokens * pin + output_tokens * pout) / 1_000_000
+    if model == "offline":
+        return 0.0
+    price = get_settings().model_prices.get(model)
+    if price is None:
+        raise ValueError("Model price is unknown; configure it in the model registry")
+    return float(price.cost(Usage(input_tokens=input_tokens, output_tokens=output_tokens)))

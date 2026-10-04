@@ -1,6 +1,6 @@
 """Document processing: render → OCR → extract (tiered) → validate → evidence → review.
 
-Routing (tiers): text layer or CPU OCR first; then the default extractor (GPT-6 Luna, or the local
+Routing (tiers): text layer or CPU OCR first; then the configured document extractor (or the local
 rules engine in fake mode); a Gemini re-read only when blocking checks fail or confidence is low and a
 Google key is configured. Every model call is metered per tenant.
 """

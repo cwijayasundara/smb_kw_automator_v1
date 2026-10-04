@@ -41,21 +41,37 @@ export function PageViewer({
             key={f.id}
             type="button"
             title={`${label(f.path)}: ${String(f.value ?? "")}`}
+            aria-label={`${label(f.path)}: ${String(f.value ?? "unreadable")}`}
             onClick={() => onSelect(f.id)}
             style={{
-              left: `${b.x * 100}%`,
-              top: `${b.y * 100}%`,
-              width: `${Math.max(b.w * 100, 1.2)}%`,
-              height: `${Math.max(b.h * 100, 1.2)}%`,
+              left: `calc(${b.x * 100}% - 2px)`,
+              top: `calc(${b.y * 100}% - 2px)`,
+              width: `calc(${Math.max(b.w * 100, 1.2)}% + 4px)`,
+              height: `calc(${Math.max(b.h * 100, 1.2)}% + 4px)`,
             }}
             className={clsx(
-              "absolute -m-0.5 rounded-[3px] border-2 transition-all",
-              f.status === "corrected" && "border-ledger bg-ledger/10",
-              f.status !== "corrected" && !low && "border-inkblue/70 bg-inkblue/5 hover:bg-inkblue/15",
-              low && "attention border-carbon bg-carbon/20",
-              active && "z-10 scale-[1.04] border-inkblue bg-inkblue/20 ring-4 ring-inkblue/25",
+              "group absolute rounded-[5px] border transition-[background-color,border-color,box-shadow] duration-150",
+              f.status === "corrected" && "border-ledger/60 bg-ledger/[0.07] hover:border-ledger hover:bg-ledger/15",
+              f.status !== "corrected" &&
+                !low &&
+                "border-inkblue/40 bg-inkblue/[0.05] hover:border-inkblue/80 hover:bg-inkblue/[0.12]",
+              low && "border-dashed border-carbon bg-carbon/[0.12] hover:bg-carbon/25",
+              active &&
+                "z-10 border-solid border-inkblue bg-inkblue/10 shadow-[0_0_0_3px_color-mix(in_srgb,var(--ink-blue)_22%,transparent),0_4px_14px_-4px_color-mix(in_srgb,var(--ink-blue)_55%,transparent)]",
             )}
-          />
+          >
+            <span
+              className={clsx(
+                "pointer-events-none absolute left-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-medium leading-none",
+                "bg-ink text-bg shadow-sm transition-opacity duration-150",
+                b.y < 0.05 ? "top-full mt-1" : "bottom-full mb-1",
+                active ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
+              )}
+            >
+              {label(f.path)}
+              {low && " · check"}
+            </span>
+          </button>
         );
       })}
       <figcaption className="absolute bottom-2 right-2 rounded-md bg-ink/75 px-2 py-0.5 text-xs text-bg">

@@ -44,7 +44,7 @@ jobs:
           echo "WEB_IMAGE=$REPO/web:$SHA" >> "$GITHUB_ENV"
           gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
       - name: Build and push the API image
-        run: docker build -t "$API_IMAGE" backend && docker push "$API_IMAGE"
+        run: docker build -f backend/Dockerfile -t "$API_IMAGE" . && docker push "$API_IMAGE"
       - name: Migrate (the only step with the owner database URL)
         run: |
           envsubst < infra/cloudrun/migrate-job.yaml > /tmp/migrate.yaml

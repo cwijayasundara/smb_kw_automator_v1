@@ -64,15 +64,15 @@ openapi:          ## regenerate the typed frontend client from the backend's Ope
 	cd frontend && pnpm exec openapi-ts
 
 lint:
-	cd backend && uv run ruff check keel tests migrations && uv run ruff format --check keel tests migrations
+	cd backend && uv run ruff check keel tests migrations ../packages/model-router && uv run ruff format --check keel tests migrations ../packages/model-router
 	cd frontend && pnpm exec eslint .
 
 typecheck:
-	cd backend && uv run mypy keel
+	cd backend && uv run mypy keel ../packages/model-router/src
 	cd frontend && pnpm exec tsc --noEmit
 
 test:             ## backend integration tests against Postgres (keel_test database)
-	cd backend && uv run pytest -q
+	cd backend && uv run pytest -q tests ../packages/model-router/tests
 
 e2e:              ## browser test against a running stack (make dev first)
 	cd frontend && pnpm exec playwright test

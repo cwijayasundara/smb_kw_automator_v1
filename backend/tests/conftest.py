@@ -12,6 +12,8 @@ os.environ.setdefault("KEEL_STORAGE_DIR", "/tmp/keel-test-storage")
 # Hermetic: a developer's backend/.env (API keys, tracing) must not leak into tests.
 os.environ["OPENAI_API_KEY"] = ""
 os.environ["GOOGLE_API_KEY"] = ""
+os.environ["FIREWORKS_API_KEY"] = ""
+os.environ["QWEN_API_KEY"] = ""
 os.environ["LANGFUSE_PUBLIC_KEY"] = ""
 os.environ["LANGFUSE_SECRET_KEY"] = ""
 os.environ["LANGFUSE_BASE_URL"] = ""

@@ -16,7 +16,7 @@ services:
       retries: 20
 
   api:
-    build: ./backend
+    build: { context: ., dockerfile: backend/Dockerfile }
     command: sh -c "keel migrate && keel api --host 0.0.0.0"
     environment: &backend_env
       KEEL_DATABASE_URL: postgresql+psycopg://keel_app:keel_app@postgres:5432/keel
@@ -31,7 +31,7 @@ services:
       postgres: { condition: service_healthy }
 
   worker:
-    build: ./backend
+    build: { context: ., dockerfile: backend/Dockerfile }
     command: sh -c "sleep 5 && keel worker"
     environment: *backend_env
     volumes: [storage:/data/storage]
